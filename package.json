@@ -10,6 +10,11 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "contracts:build": "npm run build --workspace=contracts",
+    "contracts:start": "npm run start --workspace=contracts",
+    "contracts:deploy:local": "npm run deploy:local --workspace=contracts",
+    "contracts:build:package": "npm run build:package --workspace=contracts",
+    "web:dev": "npm run dev --workspace=web",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {

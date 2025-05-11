@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import { useWriteContract, useTransaction } from 'wagmi';
+import { createWalletClient, custom, parseEther } from 'viem';
+import { hardhat } from 'viem/chains';
+import { INVOICE_CONTRACT_ADDRESS, InvoiceContractABI } from '../constants/contractABIs';
 
 interface LineItem {
   description: string;
@@ -43,6 +47,32 @@ const initialFormData: InvoiceFormData = {
 
 function InvoiceForm({ userAddress }: InvoiceFormProps) {
   const [formData, setFormData] = useState<InvoiceFormData>(initialFormData);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  
+  // Use wagmi hooks for contract interaction
+  const { 
+    writeContract, 
+    isPending: isWritePending,
+    isSuccess: isWriteSuccess,
+    error: writeError 
+  } = useWriteContract();
+  
+  // Track transaction status
+  const { 
+    isLoading: isTxLoading, 
+    isSuccess: isTxSuccess 
+  } = useTransaction({ 
+    hash: txHash as `0x${string}` | undefined
+  });
+  
+  console.log('Contract ABI:', InvoiceContractABI);
+  console.log('Contract Address:', INVOICE_CONTRACT_ADDRESS);
+
+  // Look for functions matching 'createInvoice'
+  const createInvoiceFunctions = InvoiceContractABI.filter((item: any) => 
+    item.name === 'createInvoice'
+  );
+  console.log('Create Invoice functions in ABI:', createInvoiceFunctions);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -109,16 +139,79 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Invoice data:', formData);
-    // Here you would typically send the data to your backend or blockchain
-    alert('Invoice created successfully!');
+    
+    if (!userAddress) {
+      alert('Please connect your wallet first');
+      return;
+    }
+    
+    try {
+      // Get provider from window.ethereum (MetaMask)
+      if (!window.ethereum) {
+        alert('MetaMask not found');
+        return;
+      }
+      
+      // Create a wallet client using the injected provider
+      const walletClient = createWalletClient({
+        chain: hardhat,
+        transport: custom(window.ethereum)
+      });
+      
+      // Get the account to use
+      const [account] = await walletClient.getAddresses();
+      console.log('Using account:', account);
+      
+      // Create a simple transaction to the contract
+      const txHash = await walletClient.writeContract({
+        address: INVOICE_CONTRACT_ADDRESS as `0x${string}`,
+        abi: InvoiceContractABI,
+        functionName: 'createInvoice',
+        args: [
+          // Using account #1 as recipient
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as `0x${string}`,
+          // Small amount for testing
+          parseEther('0.01'),
+          // Simple description
+          'Test Invoice',
+          // Empty ipfs hash
+          '',
+        ],
+        account,
+      });
+      
+      console.log('Transaction submitted:', txHash);
+      setTxHash(txHash);
+    } catch (error: any) {
+      console.error('Transaction error:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
       <h2 className="text-2xl font-bold mb-6">Create New Invoice</h2>
+      
+      {/* Show blockchain transaction status */}
+      {(isWritePending || isTxLoading) && (
+        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+          Creating invoice on the blockchain... Please confirm the transaction in your wallet.
+        </div>
+      )}
+      
+      {isTxSuccess && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          Invoice created successfully on the blockchain! Transaction hash: {txHash}
+        </div>
+      )}
+      
+      {writeError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          Error: {writeError.message || 'Transaction failed'}
+        </div>
+      )}
       
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -336,8 +429,9 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
           <button
             type="submit"
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded"
+            disabled={isWritePending || isTxLoading}
           >
-            Create Invoice
+            {isWritePending || isTxLoading ? 'Creating...' : 'Create Invoice'}
           </button>
         </div>
       </form>
