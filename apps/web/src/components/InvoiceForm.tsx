@@ -74,6 +74,9 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
   );
   console.log('Create Invoice functions in ABI:', createInvoiceFunctions);
   
+  const HARDHAT_INVOICE_CONTRACT = '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512';
+  const HARDHAT_USDC_CONTRACT = '0x5fbdb2315678afecb367f032d93f642f64180aa3';
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -162,21 +165,18 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
       
       // Get the account to use
       const [account] = await walletClient.getAddresses();
+      console.log('Using contract address:', HARDHAT_INVOICE_CONTRACT);
+      console.log('Using ABI:', JSON.stringify(InvoiceContractABI).substring(0, 100) + '...');
       console.log('Using account:', account);
       
-      // Create a simple transaction to the contract
       const txHash = await walletClient.writeContract({
-        address: INVOICE_CONTRACT_ADDRESS as `0x${string}`,
+        address: HARDHAT_INVOICE_CONTRACT as `0x${string}`,
         abi: InvoiceContractABI,
         functionName: 'createInvoice',
         args: [
-          // Using account #1 as recipient
-          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as `0x${string}`,
-          // Small amount for testing
+          '0x3AC3Ac89EAde764c14be6a2c9b5Ef9e77fcfB04C' as `0x${string}`,
           parseEther('0.01'),
-          // Simple description
           'Test Invoice',
-          // Empty ipfs hash
           '',
         ],
         account,
