@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { createPublicClient, http, parseEther } from 'viem';
+import { createPublicClient, http } from 'viem';
 import { hardhat } from 'viem/chains';
-import { INVOICE_CONTRACT_ADDRESS, InvoiceContractABI } from '../constants/contractABIs';
+import { InvoiceContractABI } from '../constants/contractABIs';
+import { INVOICE_CONTRACT_ADDRESS } from '../constants/contractAddresses';
 
+// Define the Invoice type
 interface Invoice {
-  id: number;
-  creator: string;
-  recipient: string;
+  id: bigint;
+  creator: `0x${string}`;
+  recipient: `0x${string}`;
   amount: bigint;
   description: string;
   ipfsHash: string;
@@ -15,10 +17,25 @@ interface Invoice {
   paidAt: bigint;
 }
 
-function InvoiceList({ userAddress }: { userAddress?: string }) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+// Define the InvoiceList props
+interface InvoiceListProps {
+  userAddress?: string;
+  onViewInvoice?: (id: bigint) => void; // Callback for viewing invoice
+}
+
+// Define the structure for our invoices state
+interface InvoicesState {
+  created: Invoice[];
+  pending: Invoice[];
+}
+
+function InvoiceList({ userAddress, onViewInvoice }: InvoiceListProps) {
+  // Initialize with the correct type
+  const [invoices, setInvoices] = useState<InvoicesState>({
+    created: [],
+    pending: []
+  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -26,130 +43,273 @@ function InvoiceList({ userAddress }: { userAddress?: string }) {
         setLoading(false);
         return;
       }
-
+      
       try {
         setLoading(true);
-        setError(null);
-
-        const publicClient = createPublicClient({
+        const client = createPublicClient({
           chain: hardhat,
           transport: http()
         });
-
-        const invoiceData = await publicClient.readContract({
-          address: '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512', // Use hardcoded address for now
+        
+        // Get invoices created by the user
+        const createdInvoices = await client.readContract({
+          address: INVOICE_CONTRACT_ADDRESS as `0x${string}`,
           abi: InvoiceContractABI,
           functionName: 'getInvoicesByUser',
           args: [userAddress as `0x${string}`]
+        }) as Invoice[];
+        
+        // Get invoices where user is recipient
+        const pendingInvoices = await client.readContract({
+          address: INVOICE_CONTRACT_ADDRESS as `0x${string}`,
+          abi: InvoiceContractABI,
+          functionName: 'getPendingInvoices',
+          args: [userAddress as `0x${string}`]
+        }) as Invoice[];
+        
+        setInvoices({
+          created: createdInvoices || [],
+          pending: pendingInvoices || []
         });
-
-        setInvoices(invoiceData as Invoice[]);
-      } catch (err: any) {
-        console.error('Error fetching invoices:', err);
-        setError(`Failed to load invoices: ${err.message}`);
+      } catch (error) {
+        console.error('Error fetching invoices:', error);
       } finally {
         setLoading(false);
       }
     };
-
+    
     fetchInvoices();
   }, [userAddress]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
+  // Handle payment directly
+  const handlePayInvoice = (invoiceToPayFor: Invoice) => {
+    // If we have a view callback, redirect to the detail view
+    if (onViewInvoice) {
+      onViewInvoice(invoiceToPayFor.id);
+    }
+    // Otherwise, you could implement direct payment here
+  };
 
-  if (error) {
-    return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-        {error}
+  // Mobile invoice card component for small screens
+  const InvoiceCard = ({ invoice, isPending = false }: { invoice: Invoice, isPending?: boolean }) => (
+    <div className="bg-white p-4 rounded-lg shadow mb-3 border border-gray-100">
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-sm font-semibold">ID: {Number(invoice.id)}</span>
+        {invoice.isPaid ? (
+          <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs">
+            Paid
+          </span>
+        ) : (
+          <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs">
+            Pending
+          </span>
+        )}
       </div>
-    );
-  }
-
-  if (!userAddress) {
-    return (
-      <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-        Please connect your wallet to view your invoices.
+      
+      <div className="mb-2">
+        <p className="text-xs text-gray-500">
+          {isPending ? 'From:' : 'To:'}
+        </p>
+        <p className="text-sm truncate">
+          {isPending 
+            ? `${invoice.creator.substring(0, 6)}...${invoice.creator.substring(invoice.creator.length - 4)}`
+            : `${invoice.recipient.substring(0, 6)}...${invoice.recipient.substring(invoice.recipient.length - 4)}`
+          }
+        </p>
       </div>
-    );
-  }
-
-  if (invoices.length === 0) {
-    return (
-      <div className="bg-gray-100 border border-gray-300 text-gray-700 px-4 py-8 rounded mb-4 text-center">
-        No invoices found. Create your first invoice to get started!
+      
+      <div className="mb-3">
+        <p className="text-xs text-gray-500">Amount:</p>
+        <p className="text-sm font-medium">
+          {(Number(invoice.amount) / 1e18).toFixed(4)} ETH
+        </p>
       </div>
-    );
-  }
+      
+      {isPending && (
+        <div className="mb-3">
+          <p className="text-xs text-gray-500">Description:</p>
+          <p className="text-sm truncate">{invoice.description || 'No description'}</p>
+        </div>
+      )}
+      
+      <div className="flex space-x-2 mt-2">
+        <button 
+          onClick={() => onViewInvoice && onViewInvoice(invoice.id)}
+          className="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded px-3 py-1 flex-1"
+        >
+          View
+        </button>
+        {isPending && !invoice.isPaid && (
+          <button 
+            onClick={() => handlePayInvoice(invoice)}
+            className="text-xs bg-green-100 text-green-700 hover:bg-green-200 rounded px-3 py-1 flex-1"
+          >
+            Pay
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-6">Your Invoices</h2>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Invoice Dashboard</h1>
       
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white rounded-lg">
-          <thead>
-            <tr className="bg-gray-50 border-b">
-              <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-              <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
-              <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-              <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {invoices.map((invoice) => (
-              <tr key={Number(invoice.id)} className="hover:bg-gray-50">
-                <td className="py-4 px-4 whitespace-nowrap">{Number(invoice.id)}</td>
-                <td className="py-4 px-4 whitespace-nowrap">
-                  {`${invoice.recipient.substring(0, 6)}...${invoice.recipient.substring(invoice.recipient.length - 4)}`}
-                </td>
-                <td className="py-4 px-4 whitespace-nowrap">
-                  {parseFloat(invoice.amount.toString()) / 1e18} ETH
-                </td>
-                <td className="py-4 px-4">{invoice.description}</td>
-                <td className="py-4 px-4 whitespace-nowrap">
-                  {new Date(Number(invoice.createdAt) * 1000).toLocaleDateString()}
-                </td>
-                <td className="py-4 px-4 whitespace-nowrap">
-                  {invoice.isPaid ? (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Paid
-                    </span>
-                  ) : (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                      Pending
-                    </span>
-                  )}
-                </td>
-                <td className="py-4 px-4 whitespace-nowrap text-sm">
-                  <button
-                    className="text-indigo-600 hover:text-indigo-900 mr-2"
-                    onClick={() => alert(`View details for invoice #${invoice.id}`)}
-                  >
-                    View
-                  </button>
-                  {!invoice.isPaid && (
-                    <button
-                      className="text-indigo-600 hover:text-indigo-900"
-                      onClick={() => alert(`Send payment reminder for invoice #${invoice.id}`)}
-                    >
-                      Remind
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {loading ? (
+        <div className="flex justify-center items-center min-h-[300px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* Invoices You Created */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-blue-500 text-white px-4 sm:px-6 py-3 sm:py-4">
+              <h2 className="text-base sm:text-xl font-semibold">Invoices You Created</h2>
+            </div>
+            
+            {/* Desktop View - Only show on md screens and up */}
+            {invoices.created && invoices.created.length > 0 ? (
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {invoices.created.map((invoice) => (
+                      <tr key={Number(invoice.id)}>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">{Number(invoice.id)}</td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                          {`${invoice.recipient.substring(0, 6)}...${invoice.recipient.substring(invoice.recipient.length - 4)}`}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                          {(Number(invoice.amount) / 1e18).toFixed(4)} ETH
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          {invoice.isPaid ? (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              Paid
+                            </span>
+                          ) : (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                          <button 
+                            onClick={() => onViewInvoice && onViewInvoice(invoice.id)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="hidden md:flex justify-center items-center p-6 text-center text-gray-500 min-h-[200px]">
+                No invoices created yet
+              </div>
+            )}
+            
+            {/* Mobile View - Only show on small screens */}
+            <div className="md:hidden p-3">
+              {invoices.created && invoices.created.length > 0 ? (
+                <div className="space-y-3">
+                  {invoices.created.map(invoice => (
+                    <InvoiceCard key={`mobile-${Number(invoice.id)}`} invoice={invoice} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-8">
+                  No invoices created yet
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Invoices To Pay */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-green-500 text-white px-4 sm:px-6 py-3 sm:py-4">
+              <h2 className="text-base sm:text-xl font-semibold">Invoices To Pay</h2>
+            </div>
+            
+            {/* Desktop View - Only show on md screens and up */}
+            {invoices.pending && invoices.pending.length > 0 ? (
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {invoices.pending.map((invoice) => (
+                      <tr key={Number(invoice.id)}>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">{Number(invoice.id)}</td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                          {`${invoice.creator.substring(0, 6)}...${invoice.creator.substring(invoice.creator.length - 4)}`}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                          {(Number(invoice.amount) / 1e18).toFixed(4)} ETH
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                          <span className="truncate block max-w-[150px]">{invoice.description}</span>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                          <button 
+                            onClick={() => handlePayInvoice(invoice)}
+                            className="mr-2 text-green-600 hover:text-green-900"
+                          >
+                            Pay
+                          </button>
+                          <button 
+                            onClick={() => onViewInvoice && onViewInvoice(invoice.id)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="hidden md:flex justify-center items-center p-6 text-center text-gray-500 min-h-[200px]">
+                No pending invoices
+              </div>
+            )}
+            
+            {/* Mobile View - Only show on small screens */}
+            <div className="md:hidden p-3">
+              {invoices.pending && invoices.pending.length > 0 ? (
+                <div className="space-y-3">
+                  {invoices.pending.map(invoice => (
+                    <InvoiceCard key={`mobile-${Number(invoice.id)}`} invoice={invoice} isPending={true} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-8">
+                  No pending invoices
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
