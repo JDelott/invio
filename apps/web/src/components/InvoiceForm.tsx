@@ -3,6 +3,7 @@ import { useWriteContract, useTransaction } from 'wagmi';
 import { createWalletClient, custom, parseEther } from 'viem';
 import { hardhat } from 'viem/chains';
 import { INVOICE_CONTRACT_ADDRESS, InvoiceContractABI } from '../constants/contractABIs';
+import { INVOICE_CONTRACT_ADDRESS as CONTRACT_ADDRESS } from '../constants/contractAddresses';
 
 interface LineItem {
   description: string;
@@ -153,18 +154,20 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
       
       // Get the account to use
       const [account] = await walletClient.getAddresses();
-      console.log('Using contract address:', INVOICE_CONTRACT_ADDRESS);
+      console.log('Using contract address:', CONTRACT_ADDRESS);
       console.log('Using ABI:', JSON.stringify(InvoiceContractABI).substring(0, 100) + '...');
       console.log('Using account:', account);
       
       const txHash = await walletClient.writeContract({
-        address: '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512' as `0x${string}`,
+        address: CONTRACT_ADDRESS as `0x${string}`,
         abi: InvoiceContractABI,
         functionName: 'createInvoice',
         args: [
-          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as `0x${string}`,
+          formData.clientAddress ? 
+            formData.clientAddress as `0x${string}` : 
+            '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as `0x${string}`,
           parseEther(formData.total.toString()),
-          formData.items.map(item => item.description).join(', '),
+          formData.items[0]?.description || 'Invoice',
           '',
         ],
         account,

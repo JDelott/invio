@@ -3,9 +3,32 @@ import './App.css';
 import InvoiceForm from './components/InvoiceForm';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { getContractAddresses } from './constants/contractAddresses';
 
 function App() {
   const { address: userAddress, isConnected } = useAccount();
+  
+  // Log contract addresses based on current network
+  useEffect(() => {
+    if (window.ethereum) {
+      // Get current chain ID
+      const updateAddresses = async () => {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        const addresses = getContractAddresses(chainId);
+        console.log('Network detected:', chainId);
+        console.log('Using contract addresses:', addresses);
+      };
+      
+      updateAddresses();
+      
+      // Listen for chain changes
+      window.ethereum.on('chainChanged', updateAddresses);
+      
+      return () => {
+        window.ethereum.removeListener('chainChanged', updateAddresses);
+      };
+    }
+  }, []);
   
   return (
     <div className="min-h-screen bg-gray-50">
