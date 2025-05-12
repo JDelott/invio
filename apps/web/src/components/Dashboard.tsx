@@ -20,6 +20,7 @@ interface Invoice {
 
 interface DashboardProps {
   userAddress?: string;
+  onViewInvoice?: (id: bigint) => void;
 }
 
 interface Metrics {
@@ -30,7 +31,7 @@ interface Metrics {
   receivedValue: number;
 }
 
-function Dashboard({ userAddress }: DashboardProps) {
+function Dashboard({ userAddress, onViewInvoice }: DashboardProps) {
   const [metrics, setMetrics] = useState<Metrics>({
     totalCreated: 0,
     totalPending: 0,
@@ -96,15 +97,18 @@ function Dashboard({ userAddress }: DashboardProps) {
   }, [userAddress]);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+    <div className="w-full bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 bg-gradient-to-r from-blue-500 to-indigo-600">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h2>
+        <p className="text-blue-100 mt-1 text-sm sm:text-base">View and manage your invoices</p>
+      </div>
       
       {loading ? (
         <div className="flex justify-center p-6">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       ) : (
-        <>
+        <div className="p-4 sm:p-6 md:p-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-gray-500 text-sm font-medium">Invoices Created</h3>
@@ -127,8 +131,11 @@ function Dashboard({ userAddress }: DashboardProps) {
             </div>
           </div>
           
-          <InvoiceList userAddress={userAddress} />
-        </>
+          <InvoiceList 
+            userAddress={userAddress} 
+            onViewInvoice={onViewInvoice}
+          />
+        </div>
       )}
     </div>
   );

@@ -83,11 +83,32 @@ function InvoiceList({ userAddress, onViewInvoice }: InvoiceListProps) {
 
   // Handle payment directly
   const handlePayInvoice = (invoiceToPayFor: Invoice) => {
-    // If we have a view callback, redirect to the detail view
+    // Directly go to invoice detail view with the ID
     if (onViewInvoice) {
+      console.log('Redirecting to pay invoice with ID:', invoiceToPayFor.id.toString());
       onViewInvoice(invoiceToPayFor.id);
     }
-    // Otherwise, you could implement direct payment here
+  };
+
+  // Inside the InvoiceList component, add a debug function
+  const handleViewInvoice = (id: bigint) => {
+    console.log('View button clicked for invoice ID:', id.toString());
+    
+    if (onViewInvoice) {
+      console.log('Calling onViewInvoice with ID:', id.toString());
+      onViewInvoice(id);
+    } else {
+      console.error('onViewInvoice prop is not defined');
+      
+      // Fallback approach - try to find the global state management
+      // This assumes you're using React Router or a similar navigation system
+      if (typeof window !== 'undefined') {
+        // Attempt to redirect to a detail page
+        window.location.href = `/invoice/${id.toString()}`;
+        // Or if you'd prefer to show an error message to the user:
+        alert(`Cannot view invoice details. Please try again later.`);
+      }
+    }
   };
 
   // Mobile invoice card component for small screens
@@ -134,15 +155,15 @@ function InvoiceList({ userAddress, onViewInvoice }: InvoiceListProps) {
       
       <div className="flex space-x-2 mt-2">
         <button 
-          onClick={() => onViewInvoice && onViewInvoice(invoice.id)}
-          className="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded px-3 py-1 flex-1"
+          onClick={() => handleViewInvoice(invoice.id)}
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-900"
         >
           View
         </button>
         {isPending && !invoice.isPaid && (
           <button 
             onClick={() => handlePayInvoice(invoice)}
-            className="text-xs bg-green-100 text-green-700 hover:bg-green-200 rounded px-3 py-1 flex-1"
+            className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200"
           >
             Pay
           </button>
@@ -152,59 +173,49 @@ function InvoiceList({ userAddress, onViewInvoice }: InvoiceListProps) {
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Invoice Dashboard</h1>
-      
+    <div>
       {loading ? (
         <div className="flex justify-center items-center min-h-[300px]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="space-y-6">
           {/* Invoices You Created */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="bg-blue-500 text-white px-4 sm:px-6 py-3 sm:py-4">
-              <h2 className="text-base sm:text-xl font-semibold">Invoices You Created</h2>
+            <div className="bg-blue-500 text-white px-4 py-3">
+              <h2 className="text-lg font-semibold">Invoices You Created</h2>
             </div>
             
-            {/* Desktop View - Only show on md screens and up */}
+            {/* Desktop view */}
             {invoices.created && invoices.created.length > 0 ? (
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <div className="hidden md:block">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="py-3 px-4 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {invoices.created.map((invoice) => (
-                      <tr key={Number(invoice.id)}>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">{Number(invoice.id)}</td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
-                          {`${invoice.recipient.substring(0, 6)}...${invoice.recipient.substring(invoice.recipient.length - 4)}`}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
-                          {(Number(invoice.amount) / 1e18).toFixed(4)} ETH
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                  <tbody>
+                    {invoices.created.map((invoice, index) => (
+                      <tr key={Number(invoice.id)} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="py-3 px-4 text-sm">{Number(invoice.id)}</td>
+                        <td className="py-3 px-4 text-sm">{`${invoice.recipient.substring(0, 6)}...${invoice.recipient.substring(invoice.recipient.length - 4)}`}</td>
+                        <td className="py-3 px-4 text-sm font-medium">{(Number(invoice.amount) / 1e18).toFixed(4)} ETH</td>
+                        <td className="py-3 px-4">
                           {invoice.isPaid ? (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              Paid
-                            </span>
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>
                           ) : (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                              Pending
-                            </span>
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pending</span>
                           )}
                         </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="py-3 px-4 text-right">
                           <button 
-                            onClick={() => onViewInvoice && onViewInvoice(invoice.id)}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            onClick={() => handleViewInvoice(invoice.id)}
+                            className="text-sm font-medium text-indigo-600 hover:text-indigo-900"
                           >
                             View
                           </button>
@@ -215,21 +226,46 @@ function InvoiceList({ userAddress, onViewInvoice }: InvoiceListProps) {
                 </table>
               </div>
             ) : (
-              <div className="hidden md:flex justify-center items-center p-6 text-center text-gray-500 min-h-[200px]">
+              <div className="hidden md:flex justify-center items-center p-8 text-gray-500">
                 No invoices created yet
               </div>
             )}
             
-            {/* Mobile View - Only show on small screens */}
-            <div className="md:hidden p-3">
+            {/* Mobile view */}
+            <div className="md:hidden">
               {invoices.created && invoices.created.length > 0 ? (
-                <div className="space-y-3">
+                <div className="divide-y divide-gray-200">
                   {invoices.created.map(invoice => (
-                    <InvoiceCard key={`mobile-${Number(invoice.id)}`} invoice={invoice} />
+                    <div key={`mobile-${Number(invoice.id)}`} className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="text-sm font-medium">Invoice #{Number(invoice.id)}</div>
+                        {invoice.isPaid ? (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                          <div className="text-xs text-gray-500">Recipient</div>
+                          <div className="text-sm">{`${invoice.recipient.substring(0, 6)}...${invoice.recipient.substring(invoice.recipient.length - 4)}`}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Amount</div>
+                          <div className="text-sm font-medium">{(Number(invoice.amount) / 1e18).toFixed(4)} ETH</div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleViewInvoice(invoice.id)}
+                        className="w-full py-2 text-center bg-indigo-50 text-indigo-600 rounded-md text-sm font-medium"
+                      >
+                        View Details
+                      </button>
+                    </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-gray-500 py-8">
+                <div className="p-8 text-center text-gray-500">
                   No invoices created yet
                 </div>
               )}
@@ -238,46 +274,44 @@ function InvoiceList({ userAddress, onViewInvoice }: InvoiceListProps) {
 
           {/* Invoices To Pay */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="bg-green-500 text-white px-4 sm:px-6 py-3 sm:py-4">
-              <h2 className="text-base sm:text-xl font-semibold">Invoices To Pay</h2>
+            <div className="bg-green-500 text-white px-4 py-3">
+              <h2 className="text-lg font-semibold">Invoices To Pay</h2>
             </div>
             
-            {/* Desktop View - Only show on md screens and up */}
+            {/* Desktop view */}
             {invoices.pending && invoices.pending.length > 0 ? (
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <div className="hidden md:block">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">From</th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                      <th className="py-3 px-4 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {invoices.pending.map((invoice) => (
-                      <tr key={Number(invoice.id)}>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">{Number(invoice.id)}</td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
-                          {`${invoice.creator.substring(0, 6)}...${invoice.creator.substring(invoice.creator.length - 4)}`}
+                  <tbody>
+                    {invoices.pending.map((invoice, index) => (
+                      <tr key={Number(invoice.id)} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="py-3 px-4 text-sm">{Number(invoice.id)}</td>
+                        <td className="py-3 px-4 text-sm">{`${invoice.creator.substring(0, 6)}...${invoice.creator.substring(invoice.creator.length - 4)}`}</td>
+                        <td className="py-3 px-4 text-sm font-medium">{(Number(invoice.amount) / 1e18).toFixed(4)} ETH</td>
+                        <td className="py-3 px-4 text-sm">
+                          <div className="max-w-xs line-clamp-1">
+                            {invoice.description || 'No description'}
+                          </div>
                         </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
-                          {(Number(invoice.amount) / 1e18).toFixed(4)} ETH
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
-                          <span className="truncate block max-w-[150px]">{invoice.description}</span>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
                           <button 
                             onClick={() => handlePayInvoice(invoice)}
-                            className="mr-2 text-green-600 hover:text-green-900"
+                            className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200"
                           >
                             Pay
                           </button>
                           <button 
-                            onClick={() => onViewInvoice && onViewInvoice(invoice.id)}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            onClick={() => handleViewInvoice(invoice.id)}
+                            className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-200"
                           >
                             View
                           </button>
@@ -288,21 +322,53 @@ function InvoiceList({ userAddress, onViewInvoice }: InvoiceListProps) {
                 </table>
               </div>
             ) : (
-              <div className="hidden md:flex justify-center items-center p-6 text-center text-gray-500 min-h-[200px]">
+              <div className="hidden md:flex justify-center items-center p-8 text-gray-500">
                 No pending invoices
               </div>
             )}
             
-            {/* Mobile View - Only show on small screens */}
-            <div className="md:hidden p-3">
+            {/* Mobile view */}
+            <div className="md:hidden">
               {invoices.pending && invoices.pending.length > 0 ? (
-                <div className="space-y-3">
+                <div className="divide-y divide-gray-200">
                   {invoices.pending.map(invoice => (
-                    <InvoiceCard key={`mobile-${Number(invoice.id)}`} invoice={invoice} isPending={true} />
+                    <div key={`mobile-pending-${Number(invoice.id)}`} className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="text-sm font-medium">Invoice #{Number(invoice.id)}</div>
+                      </div>
+                      <div className="space-y-2 mb-3">
+                        <div>
+                          <div className="text-xs text-gray-500">From</div>
+                          <div className="text-sm">{`${invoice.creator.substring(0, 6)}...${invoice.creator.substring(invoice.creator.length - 4)}`}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Amount</div>
+                          <div className="text-sm font-medium">{(Number(invoice.amount) / 1e18).toFixed(4)} ETH</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Description</div>
+                          <div className="text-sm line-clamp-2">{invoice.description || 'No description'}</div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => handlePayInvoice(invoice)}
+                          className="flex-1 py-2 text-center bg-green-100 text-green-700 rounded-md text-sm font-medium hover:bg-green-200"
+                        >
+                          Pay Now
+                        </button>
+                        <button 
+                          onClick={() => handleViewInvoice(invoice.id)}
+                          className="flex-1 py-2 text-center bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-gray-500 py-8">
+                <div className="p-8 text-center text-gray-500">
                   No pending invoices
                 </div>
               )}

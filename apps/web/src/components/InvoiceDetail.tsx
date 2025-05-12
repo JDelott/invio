@@ -142,18 +142,23 @@ function InvoiceDetail({ invoiceId, userAddress, onBack }: InvoiceDetailProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden max-w-5xl mx-auto my-4">
+    <div>
       {/* Header - Responsive design for all screen sizes */}
-      <div className="bg-indigo-600 px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <h2 className="text-lg sm:text-xl font-bold text-white">
-          Invoice #{invoice.id ? Number(invoice.id) : 'N/A'}
-        </h2>
-        <button 
-          onClick={onBack} 
-          className="text-white hover:text-indigo-100 text-sm sm:text-base flex items-center"
-        >
-          <span className="mr-1">←</span> Back
-        </button>
+      <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 bg-gradient-to-r from-blue-500 to-indigo-600">
+        <div className="flex items-center">
+          <button
+            onClick={onBack}
+            className="mr-2 p-1 rounded-full bg-white/20 text-white hover:bg-white/30"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Invoice Details</h2>
+            <p className="text-blue-100 mt-1 text-sm sm:text-base">View and manage this invoice</p>
+          </div>
+        </div>
       </div>
       
       {/* Content */}
