@@ -65,18 +65,6 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
     hash: txHash as `0x${string}` | undefined
   });
   
-  console.log('Contract ABI:', InvoiceContractABI);
-  console.log('Contract Address:', INVOICE_CONTRACT_ADDRESS);
-
-  // Look for functions matching 'createInvoice'
-  const createInvoiceFunctions = InvoiceContractABI.filter((item: any) => 
-    item.name === 'createInvoice'
-  );
-  console.log('Create Invoice functions in ABI:', createInvoiceFunctions);
-  
-  const HARDHAT_INVOICE_CONTRACT = '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512';
-  const HARDHAT_USDC_CONTRACT = '0x5fbdb2315678afecb367f032d93f642f64180aa3';
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -165,18 +153,18 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
       
       // Get the account to use
       const [account] = await walletClient.getAddresses();
-      console.log('Using contract address:', HARDHAT_INVOICE_CONTRACT);
+      console.log('Using contract address:', INVOICE_CONTRACT_ADDRESS);
       console.log('Using ABI:', JSON.stringify(InvoiceContractABI).substring(0, 100) + '...');
       console.log('Using account:', account);
       
       const txHash = await walletClient.writeContract({
-        address: HARDHAT_INVOICE_CONTRACT as `0x${string}`,
+        address: '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512' as `0x${string}`,
         abi: InvoiceContractABI,
         functionName: 'createInvoice',
         args: [
-          '0x3AC3Ac89EAde764c14be6a2c9b5Ef9e77fcfB04C' as `0x${string}`,
-          parseEther('0.01'),
-          'Test Invoice',
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as `0x${string}`,
+          parseEther(formData.total.toString()),
+          formData.items.map(item => item.description).join(', '),
           '',
         ],
         account,
@@ -191,178 +179,247 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-6">Create New Invoice</h2>
+    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="px-8 py-6 bg-gradient-to-r from-blue-500 to-indigo-600">
+        <h2 className="text-2xl font-bold text-white">Create New Invoice</h2>
+        <p className="text-blue-100 mt-1">Fill out the details below to create a blockchain invoice</p>
+      </div>
       
-      {/* Show blockchain transaction status */}
+      {/* Transaction status indicators */}
       {(isWritePending || isTxLoading) && (
-        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
-          Creating invoice on the blockchain... Please confirm the transaction in your wallet.
+        <div className="mx-8 my-4 flex p-4 bg-blue-50 rounded-md">
+          <svg className="animate-spin h-5 w-5 mr-3 text-blue-500" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <div>
+            <p className="font-medium text-blue-800">Creating invoice on blockchain...</p>
+            <p className="text-sm text-blue-600">Please confirm the transaction in your wallet</p>
+          </div>
         </div>
       )}
       
       {isTxSuccess && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          Invoice created successfully on the blockchain! Transaction hash: {txHash}
+        <div className="mx-8 my-4 p-4 bg-green-50 border border-green-100 rounded-md">
+          <div className="flex">
+            <svg className="h-5 w-5 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <div>
+              <p className="font-medium text-green-800">Invoice created successfully!</p>
+              <p className="text-sm text-green-600 mt-1">
+                Transaction hash: {txHash?.substring(0, 8)}...{txHash?.substring(txHash?.length - 8)}
+              </p>
+            </div>
+          </div>
         </div>
       )}
       
       {writeError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          Error: {writeError.message || 'Transaction failed'}
+        <div className="mx-8 my-4 p-4 bg-red-50 border border-red-100 rounded-md">
+          <div className="flex">
+            <svg className="h-5 w-5 text-red-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="font-medium text-red-800">Error creating invoice</p>
+              <p className="text-sm text-red-600 mt-1">{writeError.message || 'Transaction failed'}</p>
+            </div>
+          </div>
         </div>
       )}
       
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <label className="block text-gray-700 mb-2">Invoice Number</label>
-            <input
-              type="text"
-              name="invoiceNumber"
-              value={formData.invoiceNumber}
-              onChange={handleInputChange}
-              className="w-full p-2 border border-gray-300 rounded"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-gray-700 mb-2">Payment Method</label>
-            <select
-              name="paymentMethod"
-              value={formData.paymentMethod}
-              onChange={handleInputChange}
-              className="w-full p-2 border border-gray-300 rounded"
-            >
-              <option value="ETH">Ethereum (ETH)</option>
-              <option value="USDC">USD Coin (USDC)</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-gray-700 mb-2">Date</label>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleInputChange}
-              className="w-full p-2 border border-gray-300 rounded"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-gray-700 mb-2">Due Date</label>
-            <input
-              type="date"
-              name="dueDate"
-              value={formData.dueDate}
-              onChange={handleInputChange}
-              className="w-full p-2 border border-gray-300 rounded"
-              required
-            />
-          </div>
-        </div>
-        
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3">Client Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="p-8">
+        {/* Invoice Details Section */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-gray-700 pb-2 border-b border-gray-200 mb-4">Invoice Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-gray-700 mb-2">Client Name</label>
+              <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                Invoice Number
+              </label>
               <input
+                id="invoiceNumber"
                 type="text"
-                name="clientName"
-                value={formData.clientName}
+                name="invoiceNumber"
+                value={formData.invoiceNumber}
                 onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 required
               />
             </div>
             
             <div>
-              <label className="block text-gray-700 mb-2">Client Email</label>
+              <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Currency
+              </label>
+              <select
+                id="paymentMethod"
+                name="paymentMethod"
+                value={formData.paymentMethod}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="ETH">Ethereum (ETH)</option>
+                <option value="USDC">USD Coin (USDC)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                Issue Date
+              </label>
               <input
+                id="date"
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
+                Due Date
+              </label>
+              <input
+                id="dueDate"
+                type="date"
+                name="dueDate"
+                value={formData.dueDate}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* Client Information section */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-gray-700 pb-2 border-b border-gray-200 mb-4">Client Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="clientName" className="block text-sm font-medium text-gray-700 mb-1">
+                Client Name
+              </label>
+              <input
+                id="clientName"
+                type="text"
+                name="clientName"
+                value={formData.clientName}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="clientEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                Client Email
+              </label>
+              <input
+                id="clientEmail"
                 type="email"
                 name="clientEmail"
                 value={formData.clientEmail}
                 onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 required
               />
             </div>
             
             <div className="md:col-span-2">
-              <label className="block text-gray-700 mb-2">Client Address</label>
-              <textarea
+              <label htmlFor="clientAddress" className="block text-sm font-medium text-gray-700 mb-1">
+                Client Wallet Address <span className="text-gray-500 text-xs">(recipient)</span>
+              </label>
+              <input
+                id="clientAddress"
+                type="text"
                 name="clientAddress"
                 value={formData.clientAddress}
                 onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded"
-                rows={2}
+                placeholder="0x..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                The wallet address that will receive this invoice (default: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
+              </p>
             </div>
           </div>
         </div>
         
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3">Invoice Items</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full mb-4">
+        {/* Invoice Items */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-gray-700 pb-2 border-b border-gray-200 mb-4">Invoice Items</h3>
+          <div className="overflow-x-auto bg-gray-50 rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
               <thead>
-                <tr className="bg-gray-50">
-                  <th className="p-2 text-left">Description</th>
-                  <th className="p-2 text-right">Quantity</th>
-                  <th className="p-2 text-right">Rate</th>
-                  <th className="p-2 text-right">Amount</th>
-                  <th className="p-2"></th>
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    Quantity
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    Rate
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white divide-y divide-gray-200">
                 {formData.items.map((item, index) => (
-                  <tr key={index}>
-                    <td className="p-2">
+                  <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-4 py-3">
                       <input
                         type="text"
                         value={item.description}
                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded"
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="Item description"
                         required
                       />
                     </td>
-                    <td className="p-2">
+                    <td className="px-4 py-3">
                       <input
                         type="number"
                         value={item.quantity}
                         onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-right"
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-right"
                         min="1"
                         required
                       />
                     </td>
-                    <td className="p-2">
+                    <td className="px-4 py-3">
                       <input
                         type="number"
                         value={item.rate}
                         onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-right"
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-right"
                         min="0"
                         step="0.01"
                         required
                       />
                     </td>
-                    <td className="p-2 text-right">
+                    <td className="px-4 py-3 text-right text-sm font-medium">
                       {item.amount.toFixed(2)}
                     </td>
-                    <td className="p-2">
+                    <td className="px-4 py-3 text-right text-sm font-medium">
                       <button
                         type="button"
                         onClick={() => removeLineItem(index)}
-                        className="text-red-500 hover:text-red-700"
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
                         disabled={formData.items.length === 1}
                       >
-                        ✕
+                        Remove
                       </button>
                     </td>
                   </tr>
@@ -374,61 +431,80 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
           <button
             type="button"
             onClick={addLineItem}
-            className="text-indigo-600 hover:text-indigo-800 font-medium"
+            className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
-            + Add Line Item
+            <svg className="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            Add Item
           </button>
         </div>
         
-        <div className="mb-6">
-          <label className="block text-gray-700 mb-2">Notes</label>
-          <textarea
-            name="notes"
-            value={formData.notes}
-            onChange={handleInputChange}
-            className="w-full p-2 border border-gray-300 rounded"
-            rows={3}
-            placeholder="Payment terms, additional notes to client..."
-          />
+        {/* Notes */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-gray-700 pb-2 border-b border-gray-200 mb-4">Additional Information</h3>
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleInputChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Payment terms, delivery information, or any other notes to the client..."
+            ></textarea>
+          </div>
         </div>
         
-        <div className="flex flex-col items-end mb-6">
-          <div className="w-full md:w-1/3">
-            <div className="flex justify-between mb-2">
-              <span>Subtotal:</span>
-              <span>{formData.subtotal.toFixed(2)}</span>
+        {/* Totals */}
+        <div className="mb-8">
+          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="text-gray-900 font-medium">{formData.subtotal.toFixed(2)} {formData.paymentMethod}</span>
             </div>
             
-            <div className="flex justify-between items-center mb-2">
-              <span>Tax (%):</span>
-              <input
-                type="number"
-                value={formData.tax}
-                onChange={handleTaxChange}
-                className="w-20 p-1 border border-gray-300 rounded text-right"
-                min="0"
-                max="100"
-                step="0.01"
-              />
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center">
+                <span className="text-gray-600 mr-2">Tax (%):</span>
+                <input
+                  type="number"
+                  value={formData.tax}
+                  onChange={handleTaxChange}
+                  className="w-16 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-right"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                />
+              </div>
+              <span className="text-gray-900 font-medium">
+                {(formData.subtotal * (formData.tax / 100)).toFixed(2)} {formData.paymentMethod}
+              </span>
             </div>
             
-            <div className="flex justify-between font-bold text-lg">
-              <span>Total ({formData.paymentMethod}):</span>
-              <span>{formData.total.toFixed(2)}</span>
+            <div className="pt-3 mt-3 border-t border-gray-200 flex justify-between items-center">
+              <span className="text-lg font-semibold text-gray-900">Total:</span>
+              <span className="text-xl font-bold text-indigo-600">
+                {formData.total.toFixed(2)} {formData.paymentMethod}
+              </span>
             </div>
           </div>
         </div>
         
-        <div className="flex justify-end">
+        {/* Actions */}
+        <div className="flex justify-end space-x-4">
           <button
             type="button"
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded mr-2"
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Save as Draft
           </button>
           <button
             type="submit"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded"
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isWritePending || isTxLoading}
           >
             {isWritePending || isTxLoading ? 'Creating...' : 'Create Invoice'}
@@ -436,12 +512,12 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
         </div>
       </form>
       
-      <p className="mt-4 text-sm text-gray-500">
+      <div className="px-8 py-4 bg-gray-50 border-t border-gray-200 text-sm text-gray-500">
         Creating invoice from wallet: {userAddress ? 
           `${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}` : 
           'Not connected'
         }
-      </p>
+      </div>
     </div>
   );
 }
