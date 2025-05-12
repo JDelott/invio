@@ -158,14 +158,23 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
       console.log('Using ABI:', JSON.stringify(InvoiceContractABI).substring(0, 100) + '...');
       console.log('Using account:', account);
       
+      if (!formData.clientAddress) {
+        alert('Please enter a recipient wallet address');
+        return;
+      }
+      
+      // Check if it's a valid Ethereum address
+      if (!/^0x[a-fA-F0-9]{40}$/.test(formData.clientAddress)) {
+        alert('Please enter a valid Ethereum wallet address');
+        return;
+      }
+      
       const txHash = await walletClient.writeContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: InvoiceContractABI,
         functionName: 'createInvoice',
         args: [
-          formData.clientAddress ? 
-            formData.clientAddress as `0x${string}` : 
-            '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as `0x${string}`,
+          formData.clientAddress as `0x${string}`,
           parseEther(formData.total.toString()),
           formData.items[0]?.description || 'Invoice',
           '',
@@ -346,9 +355,10 @@ function InvoiceForm({ userAddress }: InvoiceFormProps) {
                 onChange={handleInputChange}
                 placeholder="0x..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                required
               />
               <p className="mt-1 text-xs text-gray-500">
-                The wallet address that will receive this invoice (default: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8)
+                Enter the wallet address that will receive this invoice
               </p>
             </div>
           </div>
